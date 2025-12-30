@@ -1,0 +1,15 @@
+views:
+  - type: table
+    name: Table
+    filters:
+      and:
+        - file.folder == "Intellectual/Reading List"
+        - file.fullname != "Reading list.base"
+    order:
+      - file.name
+      - Author
+      - Created
+      - References
+      - tags
+    columnSize:
+      note.Author: 150
