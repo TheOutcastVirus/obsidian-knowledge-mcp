@@ -10,6 +10,7 @@ import { loadConfig } from './config.js';
 import { VaultAccess } from './vault.js';
 import { VaultError, getActionableSuggestion } from './utils/errors.js';
 import * as navigation from './tools/navigation.js';
+import * as notes from './tools/notes.js';
 
 const config = loadConfig();
 const vault = new VaultAccess(config.vaultPath);
@@ -138,6 +139,97 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         properties: {},
       },
     },
+    {
+      name: 'create_note',
+      description:
+        'Create a new note with optional content and frontmatter. ' +
+        'The parent folder will be created if it does not exist. ' +
+        'Throws an error if the file already exists.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          path: {
+            type: 'string',
+            description: 'Vault-relative path for the new note (must end with .md)',
+          },
+          content: {
+            type: 'string',
+            description: 'Initial content for the note (optional)',
+          },
+          frontmatter: {
+            type: 'object',
+            description: 'YAML frontmatter to add to the note (optional)',
+          },
+        },
+        required: ['path'],
+      },
+    },
+    {
+      name: 'update_note',
+      description:
+        'Update an existing note with new content. Completely replaces the note content. ' +
+        'Throws an error if the file does not exist.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          path: {
+            type: 'string',
+            description: 'Vault-relative path to the note to update',
+          },
+          content: {
+            type: 'string',
+            description: 'New content for the note',
+          },
+        },
+        required: ['path', 'content'],
+      },
+    },
+    {
+      name: 'move_note',
+      description:
+        'Move a note to a new location and optionally update all backlinks. ' +
+        'Atomically updates all references in other notes if updateBacklinks is true. ' +
+        'Rolls back on failure. Creates parent folder if needed.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          oldPath: {
+            type: 'string',
+            description: 'Current vault-relative path of the note',
+          },
+          newPath: {
+            type: 'string',
+            description: 'New vault-relative path for the note',
+          },
+          updateBacklinks: {
+            type: 'boolean',
+            description: 'Whether to update all references to this note (default: true)',
+          },
+        },
+        required: ['oldPath', 'newPath'],
+      },
+    },
+    {
+      name: 'delete_note',
+      description:
+        'Delete a note and optionally clean up all references to it in other notes. ' +
+        'If cleanupReferences is true, removes all wikilinks pointing to this note. ' +
+        'Returns information about affected notes.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          path: {
+            type: 'string',
+            description: 'Vault-relative path to the note to delete',
+          },
+          cleanupReferences: {
+            type: 'boolean',
+            description: 'Whether to remove all wikilinks to this note (default: false)',
+          },
+        },
+        required: ['path'],
+      },
+    },
   ],
 }));
 
@@ -205,6 +297,78 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case 'get_vault_structure': {
         const result = await navigation.getVaultStructure(vault);
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(result, null, 2),
+            },
+          ],
+        };
+      }
+
+      case 'create_note': {
+        if (!args || typeof args !== 'object' || !('path' in args)) {
+          throw new Error('Missing required argument: path');
+        }
+        const result = await notes.createNote(
+          vault,
+          args as { path: string; content?: string; frontmatter?: Record<string, unknown> }
+        );
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(result, null, 2),
+            },
+          ],
+        };
+      }
+
+      case 'update_note': {
+        if (!args || typeof args !== 'object' || !('path' in args) || !('content' in args)) {
+          throw new Error('Missing required arguments: path, content');
+        }
+        const result = await notes.updateNote(
+          vault,
+          args as { path: string; content: string }
+        );
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(result, null, 2),
+            },
+          ],
+        };
+      }
+
+      case 'move_note': {
+        if (!args || typeof args !== 'object' || !('oldPath' in args) || !('newPath' in args)) {
+          throw new Error('Missing required arguments: oldPath, newPath');
+        }
+        const result = await notes.moveNote(
+          vault,
+          args as { oldPath: string; newPath: string; updateBacklinks?: boolean }
+        );
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(result, null, 2),
+            },
+          ],
+        };
+      }
+
+      case 'delete_note': {
+        if (!args || typeof args !== 'object' || !('path' in args)) {
+          throw new Error('Missing required argument: path');
+        }
+        const result = await notes.deleteNote(
+          vault,
+          args as { path: string; cleanupReferences?: boolean }
+        );
         return {
           content: [
             {
