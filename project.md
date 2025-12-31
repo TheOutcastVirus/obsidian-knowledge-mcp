@@ -297,6 +297,7 @@ Build a local MCP (Model Context Protocol) server that interfaces with an Obsidi
 - Accept vault path via environment variable or config file
 - Validate vault exists and is accessible before starting
 - Support standard Obsidian vault structure (folders, attachments, .obsidian config)
+- There is a Test Vault in a folder called "Test Vault" that emulates what the actual vault enviroment will look like. Explore it to understand how exactly the program should interface with the vault.
 
 ### MCP Tools to Implement
 
