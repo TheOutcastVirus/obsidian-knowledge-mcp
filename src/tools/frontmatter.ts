@@ -18,6 +18,17 @@ import {
   updateFrontmatterInContent,
 } from '../parser.js';
 
+/**
+ * Extract and parse YAML frontmatter from a single note.
+ * Returns the parsed frontmatter data along with raw YAML and any parse errors.
+ * Parse errors are returned in the result rather than thrown, allowing inspection
+ * of malformed frontmatter.
+ *
+ * @param vault - VaultAccess instance for file operations
+ * @param args - Arguments containing the note path
+ * @returns Parsed frontmatter data, raw YAML, and any parse errors
+ * @throws VaultError if path is invalid or file does not exist
+ */
 export async function getFrontmatter(
   vault: VaultAccess,
   args: GetFrontmatterArgs
@@ -41,6 +52,32 @@ export async function getFrontmatter(
   };
 }
 
+/**
+ * Update frontmatter fields in a single note without modifying the content body.
+ * By default, merges updates with existing frontmatter. Set merge=false to replace
+ * the entire frontmatter. Setting a field to null will delete it from the frontmatter.
+ *
+ * @param vault - VaultAccess instance for file operations
+ * @param args - Arguments containing path, updates object, and optional merge flag
+ * @returns Updated status and the resulting frontmatter after merge/replace
+ * @throws VaultError if path is invalid, file does not exist, or updates is not an object
+ *
+ * @example
+ * // Add or update fields (merge mode)
+ * updateFrontmatter(vault, {
+ *   path: 'note.md',
+ *   updates: { author: 'John', tags: ['new'] },
+ *   merge: true
+ * });
+ *
+ * @example
+ * // Delete a field by setting it to null
+ * updateFrontmatter(vault, {
+ *   path: 'note.md',
+ *   updates: { status: null },
+ *   merge: true
+ * });
+ */
 export async function updateFrontmatter(
   vault: VaultAccess,
   args: UpdateFrontmatterArgs
@@ -98,6 +135,25 @@ export async function updateFrontmatter(
   };
 }
 
+/**
+ * Update frontmatter across multiple notes in a single operation.
+ * Processes all notes independently, continuing even if some updates fail.
+ * Each note update is atomic and isolated from others.
+ *
+ * @param vault - VaultAccess instance for file operations
+ * @param args - Arguments containing array of path/frontmatter pairs and optional merge flag
+ * @returns Summary of total processed, successful, failed, and detailed results per note
+ * @throws VaultError if updates array is empty or invalid
+ *
+ * @example
+ * bulkUpdateFrontmatter(vault, {
+ *   updates: [
+ *     { path: 'note1.md', frontmatter: { status: 'reviewed' } },
+ *     { path: 'note2.md', frontmatter: { status: 'reviewed' } }
+ *   ],
+ *   merge: true
+ * });
+ */
 export async function bulkUpdateFrontmatter(
   vault: VaultAccess,
   args: BulkUpdateFrontmatterArgs
@@ -154,6 +210,29 @@ export async function bulkUpdateFrontmatter(
   return results;
 }
 
+/**
+ * Validate frontmatter against a schema across one or more notes.
+ * Checks for required fields and validates field types. Returns detailed
+ * validation errors for each note that fails validation.
+ *
+ * @param vault - VaultAccess instance for file operations
+ * @param args - Arguments containing optional paths array and required schema object
+ * @returns Summary of valid/invalid notes and detailed validation errors
+ * @throws VaultError if schema is missing or invalid
+ *
+ * @example
+ * auditFrontmatter(vault, {
+ *   paths: ['note1.md', 'note2.md'],
+ *   schema: {
+ *     required: ['title', 'created'],
+ *     fields: {
+ *       title: { type: 'string', required: true },
+ *       created: { type: 'date', required: true },
+ *       tags: { type: 'array' }
+ *     }
+ *   }
+ * });
+ */
 export async function auditFrontmatter(
   vault: VaultAccess,
   args: AuditFrontmatterArgs
@@ -238,6 +317,15 @@ export async function auditFrontmatter(
   return results;
 }
 
+/**
+ * Merge existing frontmatter with updates, handling null deletions.
+ * Creates a new object by copying existing frontmatter and applying updates.
+ * Fields set to null in updates are deleted from the result.
+ *
+ * @param existing - Current frontmatter data
+ * @param updates - Updates to apply (null values delete fields)
+ * @returns Merged frontmatter with null fields removed
+ */
 function mergeFrontmatter(
   existing: Record<string, unknown>,
   updates: Record<string, unknown>
@@ -255,6 +343,15 @@ function mergeFrontmatter(
   return result;
 }
 
+/**
+ * Validate frontmatter data against a schema definition.
+ * Checks both globally required fields and per-field validation rules.
+ * Returns an array of validation errors, empty if all validations pass.
+ *
+ * @param frontmatter - Frontmatter data to validate (may be null)
+ * @param schema - Schema definition with required fields and field rules
+ * @returns Array of validation errors (empty if valid)
+ */
 function validateFrontmatterAgainstSchema(
   frontmatter: Record<string, unknown> | null,
   schema: FrontmatterSchema
@@ -297,6 +394,16 @@ function validateFrontmatterAgainstSchema(
   return errors;
 }
 
+/**
+ * Validate a single field value against its schema definition.
+ * Checks type compatibility and null handling based on schema rules.
+ * Supports string, number, boolean, array, object, and date types.
+ *
+ * @param value - The field value to validate
+ * @param fieldName - Name of the field being validated (for error messages)
+ * @param schema - Schema definition for this field
+ * @returns ValidationError if invalid, null if valid
+ */
 function validateFieldType(
   value: unknown,
   fieldName: string,

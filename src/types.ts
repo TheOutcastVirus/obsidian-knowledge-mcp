@@ -143,46 +143,76 @@ export interface Position {
   column: number;
 }
 
+// Frontmatter tool argument types
+
+/** Arguments for get_frontmatter tool */
 export interface GetFrontmatterArgs {
+  /** Vault-relative path to the note */
   path: string;
 }
 
+/** Arguments for update_frontmatter tool */
 export interface UpdateFrontmatterArgs {
+  /** Vault-relative path to the note */
   path: string;
+  /** Frontmatter fields to add/update (null values delete fields) */
   updates: Record<string, unknown>;
+  /** Whether to merge with existing frontmatter (default: true) */
   merge?: boolean;
 }
 
+/** Arguments for bulk_update_frontmatter tool */
 export interface BulkUpdateFrontmatterArgs {
+  /** Array of path/frontmatter pairs to update */
   updates: Array<{
     path: string;
     frontmatter: Record<string, unknown>;
   }>;
+  /** Whether to merge with existing frontmatter (default: true) */
   merge?: boolean;
 }
 
+/** Arguments for audit_frontmatter tool */
 export interface AuditFrontmatterArgs {
+  /** Optional: specific notes to audit (if omitted, audits entire vault) */
   paths?: string[];
+  /** Schema definition for validation */
   schema: FrontmatterSchema;
 }
 
+// Frontmatter tool result types
+
+/** Result from get_frontmatter tool */
 export interface GetFrontmatterResult {
+  /** Path to the note */
   path: string;
+  /** Parsed frontmatter data (null if none or parse error) */
   frontmatter: Record<string, unknown> | null;
+  /** Parse error message (null if successful) */
   error: string | null;
+  /** Raw YAML string (null if no frontmatter) */
   rawYaml: string | null;
 }
 
+/** Result from update_frontmatter tool */
 export interface UpdateFrontmatterResult {
+  /** Path to the note */
   path: string;
+  /** Whether the update was successful */
   updated: boolean;
+  /** The resulting frontmatter after update */
   frontmatter: Record<string, unknown>;
 }
 
+/** Result from bulk_update_frontmatter tool */
 export interface BulkUpdateFrontmatterResult {
+  /** Total number of notes processed */
   totalProcessed: number;
+  /** Number of successful updates */
   successful: number;
+  /** Number of failed updates */
   failed: number;
+  /** Detailed results for each note */
   details: Array<{
     path: string;
     success: boolean;
@@ -191,10 +221,15 @@ export interface BulkUpdateFrontmatterResult {
   }>;
 }
 
+/** Result from audit_frontmatter tool */
 export interface AuditFrontmatterResult {
+  /** Total number of notes audited */
   totalNotes: number;
+  /** Number of notes passing validation */
   validNotes: number;
+  /** Number of notes failing validation */
   invalidNotes: number;
+  /** Detailed validation results for each note */
   details: Array<{
     path: string;
     valid: boolean;
@@ -202,21 +237,36 @@ export interface AuditFrontmatterResult {
   }>;
 }
 
+// Schema and validation types
+
+/** Schema definition for frontmatter validation */
 export interface FrontmatterSchema {
+  /** Array of required field names */
   required?: string[];
+  /** Field-specific validation rules */
   fields?: Record<string, FieldSchema>;
 }
 
+/** Validation rules for a single frontmatter field */
 export interface FieldSchema {
+  /** Expected type of the field value */
   type?: 'string' | 'number' | 'boolean' | 'array' | 'object' | 'date';
+  /** Whether this field is required */
   required?: boolean;
+  /** Whether null values are allowed */
   allowNull?: boolean;
 }
 
+/** Validation error for a frontmatter field */
 export interface ValidationError {
+  /** Name of the field with the error */
   field: string;
+  /** Type of validation error */
   type: 'missing_required' | 'invalid_type' | 'parse_error';
+  /** Human-readable error message */
   message: string;
+  /** Expected type or value (for type errors) */
   expected?: string;
+  /** Actual type or value found (for type errors) */
   actual?: string;
 }
