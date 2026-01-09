@@ -11,6 +11,7 @@ import { VaultAccess } from './vault.js';
 import { VaultError, getActionableSuggestion } from './utils/errors.js';
 import * as navigation from './tools/navigation.js';
 import * as notes from './tools/notes.js';
+import * as frontmatter from './tools/frontmatter.js';
 
 const config = loadConfig();
 const vault = new VaultAccess(config.vaultPath);
@@ -230,6 +231,121 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         required: ['path'],
       },
     },
+    {
+      name: 'get_frontmatter',
+      description:
+        'Extract and parse YAML frontmatter from a single note. ' +
+        'Returns the parsed frontmatter data, raw YAML, and any parse errors. ' +
+        'Use this to inspect metadata before updating.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          path: {
+            type: 'string',
+            description: 'Vault-relative path to the note',
+          },
+        },
+        required: ['path'],
+      },
+    },
+    {
+      name: 'update_frontmatter',
+      description:
+        'Update frontmatter fields in a single note without touching content. ' +
+        'By default, merges with existing frontmatter (merge: true). ' +
+        'Set a field to null to delete it. Set merge to false to replace entire frontmatter.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          path: {
+            type: 'string',
+            description: 'Vault-relative path to the note',
+          },
+          updates: {
+            type: 'object',
+            description: 'Frontmatter fields to add/update. Set field to null to delete it.',
+          },
+          merge: {
+            type: 'boolean',
+            description: 'Whether to merge with existing frontmatter (default: true)',
+          },
+        },
+        required: ['path', 'updates'],
+      },
+    },
+    {
+      name: 'bulk_update_frontmatter',
+      description:
+        'Update frontmatter across multiple notes in a single operation. ' +
+        'Continues on error and returns detailed results for each note. ' +
+        'Each note update is independent and atomic.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          updates: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                path: { type: 'string' },
+                frontmatter: { type: 'object' },
+              },
+              required: ['path', 'frontmatter'],
+            },
+            description: 'Array of path/frontmatter pairs to update',
+          },
+          merge: {
+            type: 'boolean',
+            description: 'Whether to merge with existing frontmatter (default: true)',
+          },
+        },
+        required: ['updates'],
+      },
+    },
+    {
+      name: 'audit_frontmatter',
+      description:
+        'Validate frontmatter against a schema across one or more notes. ' +
+        'Checks required fields and basic type validation. ' +
+        'Returns detailed validation errors for each invalid note.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          paths: {
+            type: 'array',
+            items: { type: 'string' },
+            description: 'Optional: specific notes to audit. If omitted, audits entire vault.',
+          },
+          schema: {
+            type: 'object',
+            properties: {
+              required: {
+                type: 'array',
+                items: { type: 'string' },
+                description: 'Array of required field names',
+              },
+              fields: {
+                type: 'object',
+                description: 'Field-specific validation rules',
+                additionalProperties: {
+                  type: 'object',
+                  properties: {
+                    type: {
+                      type: 'string',
+                      enum: ['string', 'number', 'boolean', 'array', 'object', 'date'],
+                    },
+                    required: { type: 'boolean' },
+                    allowNull: { type: 'boolean' },
+                  },
+                },
+              },
+            },
+            description: 'Validation schema for frontmatter',
+          },
+        },
+        required: ['schema'],
+      },
+    },
   ],
 }));
 
@@ -368,6 +484,94 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const result = await notes.deleteNote(
           vault,
           args as { path: string; cleanupReferences?: boolean }
+        );
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(result, null, 2),
+            },
+          ],
+        };
+      }
+
+      case 'get_frontmatter': {
+        if (!args || typeof args !== 'object' || !('path' in args)) {
+          throw new Error('Missing required argument: path');
+        }
+        const result = await frontmatter.getFrontmatter(
+          vault,
+          args as { path: string }
+        );
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(result, null, 2),
+            },
+          ],
+        };
+      }
+
+      case 'update_frontmatter': {
+        if (!args || typeof args !== 'object' || !('path' in args) || !('updates' in args)) {
+          throw new Error('Missing required arguments: path, updates');
+        }
+        const result = await frontmatter.updateFrontmatter(
+          vault,
+          args as { path: string; updates: Record<string, unknown>; merge?: boolean }
+        );
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(result, null, 2),
+            },
+          ],
+        };
+      }
+
+      case 'bulk_update_frontmatter': {
+        if (!args || typeof args !== 'object' || !('updates' in args)) {
+          throw new Error('Missing required argument: updates');
+        }
+        const result = await frontmatter.bulkUpdateFrontmatter(
+          vault,
+          args as {
+            updates: Array<{ path: string; frontmatter: Record<string, unknown> }>;
+            merge?: boolean;
+          }
+        );
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(result, null, 2),
+            },
+          ],
+        };
+      }
+
+      case 'audit_frontmatter': {
+        if (!args || typeof args !== 'object' || !('schema' in args)) {
+          throw new Error('Missing required argument: schema');
+        }
+        const result = await frontmatter.auditFrontmatter(
+          vault,
+          args as {
+            paths?: string[];
+            schema: {
+              required?: string[];
+              fields?: Record<
+                string,
+                {
+                  type?: 'string' | 'number' | 'boolean' | 'array' | 'object' | 'date';
+                  required?: boolean;
+                  allowNull?: boolean;
+                }
+              >;
+            };
+          }
         );
         return {
           content: [

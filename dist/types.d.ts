@@ -123,4 +123,71 @@ export interface Position {
     line: number;
     column: number;
 }
+export interface GetFrontmatterArgs {
+    path: string;
+}
+export interface UpdateFrontmatterArgs {
+    path: string;
+    updates: Record<string, unknown>;
+    merge?: boolean;
+}
+export interface BulkUpdateFrontmatterArgs {
+    updates: Array<{
+        path: string;
+        frontmatter: Record<string, unknown>;
+    }>;
+    merge?: boolean;
+}
+export interface AuditFrontmatterArgs {
+    paths?: string[];
+    schema: FrontmatterSchema;
+}
+export interface GetFrontmatterResult {
+    path: string;
+    frontmatter: Record<string, unknown> | null;
+    error: string | null;
+    rawYaml: string | null;
+}
+export interface UpdateFrontmatterResult {
+    path: string;
+    updated: boolean;
+    frontmatter: Record<string, unknown>;
+}
+export interface BulkUpdateFrontmatterResult {
+    totalProcessed: number;
+    successful: number;
+    failed: number;
+    details: Array<{
+        path: string;
+        success: boolean;
+        frontmatter?: Record<string, unknown>;
+        error?: string;
+    }>;
+}
+export interface AuditFrontmatterResult {
+    totalNotes: number;
+    validNotes: number;
+    invalidNotes: number;
+    details: Array<{
+        path: string;
+        valid: boolean;
+        errors: ValidationError[];
+    }>;
+}
+export interface FrontmatterSchema {
+    required?: string[];
+    fields?: Record<string, FieldSchema>;
+}
+export interface FieldSchema {
+    type?: 'string' | 'number' | 'boolean' | 'array' | 'object' | 'date';
+    required?: boolean;
+    allowNull?: boolean;
+}
+export interface ValidationError {
+    field: string;
+    type: 'missing_required' | 'invalid_type' | 'parse_error';
+    message: string;
+    expected?: string;
+    actual?: string;
+}
 //# sourceMappingURL=types.d.ts.map
